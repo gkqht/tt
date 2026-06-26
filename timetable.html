@@ -677,24 +677,6 @@
       filter: none;
     }
 
-    .tt-cell.is-duplicating {
-      opacity: .75;
-      border-style: dashed !important;
-      border-color: var(--gold) !important;
-      filter: none;
-    }
-
-    .tt-cell.is-duplicating::after {
-      content: '+';
-      position: absolute;
-      top: 4px;
-      left: 6px;
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--gold);
-      line-height: 1;
-    }
-
     .tt-cell.drop-target {
       border-color: var(--gold) !important;
       background: rgba(201, 168, 76, .12) !important;
@@ -1397,6 +1379,7 @@
     let S = clone(DEF);
     let editKey = null, pendColor = null, pendSpan = 1, isTemplateMode = false;
     let selectedKey = null;
+    let copiedCell = null;
 
     // ── HISTORY ──
     const _hist = [];
@@ -1429,8 +1412,7 @@
       cellKey: null,
       pIdx: null,
       dIdx: null,
-      tIdx: null,
-      isDuplicate: false
+      tIdx: null
     };
 
     // ════════════════════════════════════════════
@@ -1438,36 +1420,28 @@
     // ════════════════════════════════════════════
     function cDragStart(e, key) {
       DS.cellKey = key;
-      DS.isDuplicate = e.altKey;
-      e.dataTransfer.effectAllowed = DS.isDuplicate ? 'copy' : 'move';
+      e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', key);
 
-      // Custom compact ghost — prevents the wide spanned cell from being used
-      // as the drag image, which would force the grid to extend horizontally
       const cell = S.cells[key];
       const ghost = document.createElement('div');
       ghost.style.cssText = 'position:fixed;top:-999px;left:-999px;background:#28231a;border:1px solid #c9a84c;border-radius:5px;padding:7px 12px;color:#ede3d0;font:500 13px/1.3 Inter,sans-serif;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 16px rgba(0,0,0,.5);';
-      ghost.textContent = (DS.isDuplicate ? '+ ' : '') + (cell?.title || 'Block');
+      ghost.textContent = cell?.title || 'Block';
       document.body.appendChild(ghost);
       e.dataTransfer.setDragImage(ghost, 16, 16);
       setTimeout(() => ghost.remove(), 0);
 
       requestAnimationFrame(() => {
         const el = document.querySelector(`[data-ckey="${key}"]`);
-        if (el) {
-          if (DS.isDuplicate) el.classList.add('is-duplicating');
-          else el.classList.add('is-dragging');
-        }
+        if (el) el.classList.add('is-dragging');
       });
-      showTip(DS.isDuplicate ? 'Alt+Drag — Duplicate' : 'Drop to swap', e);
+      showTip('Drop to move / swap', e);
     }
 
     function cDragOver(e, key) {
       if (DS.cellKey || DS.tIdx !== null) {
         e.preventDefault();
-        if (DS.cellKey) DS.isDuplicate = e.altKey; // track live so cDrop doesn't need e.altKey
-        const isDup = DS.isDuplicate;
-        e.dataTransfer.dropEffect = (DS.tIdx !== null || isDup) ? 'copy' : 'move';
+        e.dataTransfer.dropEffect = DS.tIdx !== null ? 'copy' : 'move';
         document.querySelectorAll('.tt-cell.drop-target').forEach(el => el.classList.remove('drop-target'));
         if (DS.cellKey) {
           // Highlight all cells the incoming block will cover
@@ -1484,7 +1458,7 @@
           const el = document.querySelector(`[data-ckey="${key}"]`);
           if (el) el.classList.add('drop-target');
         }
-        showTip(isDup ? 'Alt+Drag — Duplicate' : 'Drop to swap', e);
+        showTip('Drop to move / swap', e);
       }
     }
 
@@ -1514,7 +1488,6 @@
       }
       const src = DS.cellKey;
       if (!src || src === key) { cDragEnd(); return; }
-      const isDup = DS.isDuplicate;
       const srcData = S.cells[src] ? clone(S.cells[src]) : null;
       const dstData = S.cells[key] ? clone(S.cells[key]) : null;
       const srcSpan = srcData?.span || 1;
@@ -1531,15 +1504,6 @@
       const srcPIds = [srcPeriodId, ...getCoveredIds(srcPIdx, srcSpan)];
       // Destination footprint uses srcSpan size — that's where the block will land
       const dstPIds = [dstPeriodId, ...getCoveredIds(dstPIdx, srcSpan)];
-
-      if (isDup) {
-        // Clear enough room for the copy (max of existing block and incoming)
-        clearDestSpan(dstDayId, dstPeriodId, Math.max(dstSpan, srcSpan));
-        if (srcData) S.cells[key] = srcData;
-        pushHistory(); cDragEnd(); renderTT();
-        toast('Block duplicated', 'ok');
-        return;
-      }
 
       // Snapshot all destination cells in the incoming block's footprint BEFORE any changes
       const dstSnapshot = dstPIds.map(pid => {
@@ -1566,8 +1530,7 @@
     function cDragEnd() {
       DS.cellKey = null;
       DS.tIdx = null;
-      DS.isDuplicate = false;
-      document.querySelectorAll('.tt-cell').forEach(el => el.classList.remove('is-dragging', 'is-duplicating', 'drop-target'));
+      document.querySelectorAll('.tt-cell').forEach(el => el.classList.remove('is-dragging', 'drop-target'));
       document.getElementById('temList').classList.remove('drop-target');
       hideTip();
     }
@@ -2263,6 +2226,21 @@
           if (e.ctrlKey && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
           // Redo
           if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); redo(); }
+          // Copy
+          if (e.ctrlKey && e.key === 'c' && selectedKey && S.cells[selectedKey]) {
+            e.preventDefault();
+            copiedCell = clone(S.cells[selectedKey]);
+            toast('Block copied', 'ok');
+          }
+          // Paste
+          if (e.ctrlKey && e.key === 'v' && copiedCell && selectedKey) {
+            e.preventDefault();
+            const parts = selectedKey.split('-');
+            const dayId = parts[0], periodId = parts.slice(1).join('-');
+            clearDestSpan(dayId, periodId, Math.max(S.cells[selectedKey]?.span || 1, copiedCell.span || 1));
+            S.cells[selectedKey] = clone(copiedCell);
+            pushHistory(); renderTT(); toast('Block pasted', 'ok');
+          }
         }
       });
       document.addEventListener('dragstart', () => { _dragging = true; clearSelection(); });
