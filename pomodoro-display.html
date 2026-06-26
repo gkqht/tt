@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meridian — Focus</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0e0c09;
+      --gold: #c9a84c;
+      --gold-d: #7a621c;
+      --cream: #ede3d0;
+      --t1: #ddd3bc;
+      --t2: #8a7a60;
+      --t3: #524535;
+      --border: #3a2f1e;
+      --border-l: #52432b;
+      --bg-elev: #1c1810;
+      --clr-work: #c9a84c;
+      --clr-short: #4a9a6a;
+      --clr-long: #4a7aaa;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; width: 100%; overflow: hidden; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--t1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    /* ── AMBIENT BACKGROUND ── */
+    .bg-glow {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      transition: opacity 1s;
+    }
+    .bg-glow-inner {
+      position: absolute;
+      width: 700px; height: 700px;
+      border-radius: 50%;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      transition: background 0.8s;
+      opacity: 0;
+    }
+    body.running .bg-glow-inner { opacity: 1; }
+    body.mode-work  .bg-glow-inner { background: radial-gradient(circle, rgba(201,168,76,.06) 0%, transparent 70%); }
+    body.mode-short .bg-glow-inner { background: radial-gradient(circle, rgba(74,154,106,.06) 0%, transparent 70%); }
+    body.mode-long  .bg-glow-inner { background: radial-gradient(circle, rgba(74,122,170,.06) 0%, transparent 70%); }
+
+    /* subtle vignette */
+    body::after {
+      content: '';
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: radial-gradient(ellipse 80% 80% at 50% 50%, transparent 50%, rgba(6,5,3,.7) 100%);
+    }
+
+    /* ── MAIN STAGE ── */
+    .stage {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 0;
+      user-select: none;
+    }
+
+    /* ── SESSION DOTS ── */
+    .session-dots {
+      display: flex; gap: 12px;
+      margin-bottom: 28px; align-items: center;
+    }
+    .s-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255,255,255,.06); border: 1.5px solid var(--border-l);
+      transition: all .4s;
+    }
+    .s-dot.done    { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 8px rgba(201,168,76,.5); }
+    .s-dot.current { background: transparent; border-color: var(--gold); animation: dotPulse 1.6s ease-in-out infinite; }
+    @keyframes dotPulse {
+      0%,100% { transform:scale(1); box-shadow:0 0 0 0 rgba(201,168,76,.4); }
+      50%      { transform:scale(1.3); box-shadow:0 0 0 5px rgba(201,168,76,0); }
+    }
+
+    /* ── RING ── */
+    .ring-wrap {
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .ring-svg {
+      position: absolute; inset: 0;
+      transform: rotate(-90deg);
+      overflow: visible;
+    }
+
+    .ring-track { fill: none; stroke: rgba(255,255,255,.04); }
+    .ring-track-inner { fill: none; stroke: rgba(255,255,255,.02); }
+
+    .ring-glow {
+      fill: none; stroke-linecap: round;
+      opacity: .2; filter: url(#blur);
+      transition: stroke .6s, stroke-dashoffset 1s linear, opacity .5s;
+    }
+    body.running .ring-glow { opacity: .3; }
+
+    .ring-progress {
+      fill: none; stroke-linecap: round;
+      transition: stroke .6s, stroke-dashoffset 1s linear;
+    }
+
+    /* smooth dot tracking */
+    #ringDot {
+      transition: cx 1s linear, cy 1s linear, opacity .3s;
+    }
+    body.mode-work  #ringDot { filter: drop-shadow(0 0 5px rgba(201,168,76,.7)); }
+    body.mode-short #ringDot { filter: drop-shadow(0 0 5px rgba(74,154,106,.7)); }
+    body.mode-long  #ringDot { filter: drop-shadow(0 0 5px rgba(74,122,170,.7)); }
+
+    /* tick marks */
+    .tick-major { stroke-width: 1.5; opacity: .35; }
+    .tick-minor { stroke-width: 1;   opacity: .18; }
+
+    /* center content */
+    .ring-center {
+      position: relative; z-index: 2;
+      text-align: center;
+      display: flex; flex-direction: column; align-items: center;
+    }
+
+    .mode-label {
+      font-family: 'Cinzel', serif;
+      font-size: 10px; letter-spacing: .3em;
+      color: var(--t3); text-transform: uppercase;
+      margin-bottom: 8px;
+      transition: color .4s;
+    }
+
+    .time-display {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700; line-height: 1;
+      color: var(--cream);
+      letter-spacing: -.02em;
+      transition: color .4s, font-size .2s;
+    }
+
+    .session-label {
+      font-size: 11px; color: var(--t3);
+      margin-top: 8px; letter-spacing: .06em;
+    }
+
+    /* ── TASK NAME ── */
+    .task-name {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      color: var(--t2);
+      text-align: center;
+      transition: color .4s, font-size .2s;
+      white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 500px;
+    }
+    .task-name.empty { display: none; }
+
+    /* ── CONTROLS ── */
+    .controls {
+      display: flex; gap: 20px; align-items: center;
+    }
+
+    .ctrl {
+      border-radius: 50%; border: 1px solid var(--border-l);
+      background: rgba(255,255,255,.03);
+      color: var(--t3); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Inter', sans-serif; font-weight: 600;
+      transition: all .2s; backdrop-filter: blur(4px);
+      letter-spacing: .1em;
+    }
+    .ctrl:hover { border-color: var(--gold-d); color: var(--cream); background: rgba(255,255,255,.06); }
+    .ctrl-sm { width: 44px; height: 44px; font-size: 16px; }
+    .ctrl-main {
+      color: var(--cream); border-color: rgba(255,255,255,.18);
+      background: rgba(255,255,255,.04);
+    }
+    .ctrl-main:hover { background: var(--gold-d); border-color: var(--gold); color: #0e0b06; }
+    .ctrl-main.running {
+      background: rgba(201,168,76,.08); border-color: var(--gold);
+      color: var(--gold); animation: mainPulse 2.2s ease-in-out infinite;
+    }
+    @keyframes mainPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(201,168,76,.2); }
+      50%      { box-shadow: 0 0 0 14px rgba(201,168,76,0); }
+    }
+
+    /* ── CORNER UI ── */
+    .corner {
+      position: fixed; z-index: 10;
+      display: flex; gap: 8px; align-items: center;
+    }
+    .corner-tl { top: 20px; left: 24px; }
+    .corner-tr { top: 20px; right: 24px; }
+    .corner-bl { bottom: 20px; left: 24px; }
+    .corner-br { bottom: 20px; right: 24px; }
+
+    .corner-logo {
+      font-family: 'Cinzel', serif; font-size: 13px; font-weight: 600;
+      color: var(--gold-d); letter-spacing: .16em; opacity: .6;
+    }
+
+    .corner-btn {
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500;
+      color: var(--t3); background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px; padding: 5px 10px; cursor: pointer;
+      transition: all .15s; text-decoration: none; display: inline-flex;
+      align-items: center; gap: 5px; letter-spacing: .04em;
+    }
+    .corner-btn:hover { border-color: var(--border-l); color: var(--t1); background: rgba(255,255,255,.04); }
+
+    .kbd-row {
+      font-size: 10px; color: var(--t3); letter-spacing: .04em;
+      display: flex; gap: 10px; align-items: center; opacity: .6;
+    }
+    .kbd {
+      display: inline-block; background: rgba(255,255,255,.05);
+      border: 1px solid var(--border-l); border-radius: 3px;
+      padding: 1px 5px; font-family: 'Inter', monospace;
+      font-size: 9px; color: var(--t3); margin-right: 3px;
+    }
+
+    /* mode pill */
+    .mode-pill {
+      font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: .2em;
+      padding: 4px 12px; border-radius: 12px;
+      border: 1px solid var(--border);
+      color: var(--t3); background: transparent;
+      text-transform: uppercase; transition: all .4s;
+    }
+    body.mode-work  .mode-pill.work  { border-color: var(--clr-work);  color: var(--clr-work);  background: rgba(201,168,76,.08); }
+    body.mode-short .mode-pill.short { border-color: var(--clr-short); color: var(--clr-short); background: rgba(74,154,106,.08); }
+    body.mode-long  .mode-pill.long  { border-color: var(--clr-long);  color: var(--clr-long);  background: rgba(74,122,170,.08); }
+
+    /* ── RESPONSIVE SIZING ── */
+    .ring-wrap   { width: var(--ring-size, 380px); height: var(--ring-size, 380px); }
+    .time-display { font-size: var(--time-size, 80px); }
+    .task-name    { font-size: var(--task-size, 18px); margin-bottom: var(--task-mb, 28px); margin-top: var(--task-mt, 16px); }
+    .ctrl-main    { width: var(--btn-size, 80px); height: var(--btn-size, 80px); font-size: var(--btn-font, 12px); }
+
+    /* toast */
+    #toasts { position: fixed; bottom: 18px; right: 18px; z-index: 100; display: flex; flex-direction: column; gap: 6px; }
+    .toast { background: rgba(40,35,26,.95); border: 1px solid var(--border-l); border-radius: 6px; padding: 9px 14px; font-size: 12px; font-weight: 500; color: var(--t1); backdrop-filter: blur(8px); animation: tin .25s ease; }
+    .toast.ok { border-left: 3px solid var(--gold); }
+    .toast.er { border-left: 3px solid #7a2424; }
+    @keyframes tin { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  </style>
+</head>
+<body class="mode-work">
+
+<div class="bg-glow"><div class="bg-glow-inner"></div></div>
+<div id="toasts"></div>
+
+<!-- Corners -->
+<div class="corner corner-tl">
+  <a href="index.html" class="corner-logo" style="text-decoration:none;cursor:pointer">MERIDIAN</a>
+</div>
+
+<div class="corner corner-tr">
+  <div style="display:flex;gap:5px;align-items:center">
+    <span class="mode-pill work"  id="pillWork"  onclick="switchMode('work')">Work</span>
+    <span class="mode-pill short" id="pillShort" onclick="switchMode('short')">Break</span>
+    <span class="mode-pill long"  id="pillLong"  onclick="switchMode('long')">Long</span>
+  </div>
+</div>
+
+<div class="corner corner-bl">
+  <div class="kbd-row">
+    <span><kbd class="kbd">Space</kbd> play/pause</span>
+    <span><kbd class="kbd">R</kbd> reset</span>
+    <span><kbd class="kbd">S</kbd> skip</span>
+  </div>
+</div>
+
+<div class="corner corner-br">
+  <a href="index.html" class="corner-btn">◆ Hub</a>
+  <a href="pomodoro.html" class="corner-btn">⚙ Timer</a>
+</div>
+
+<!-- STAGE -->
+<div class="stage">
+
+  <!-- Cycle dots -->
+  <div class="session-dots" id="sessionDots"></div>
+
+  <!-- Ring -->
+  <div class="ring-wrap" id="ringWrap">
+    <svg class="ring-svg" id="ringSvg" viewBox="0 0 380 380">
+      <defs>
+        <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="10"/>
+        </filter>
+        <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   id="gs1" stop-color="#c9a84c"/>
+          <stop offset="100%" id="gs2" stop-color="#e0c890"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Ticks -->
+      <g id="ticks"></g>
+
+      <!-- Tracks -->
+      <circle class="ring-track" cx="190" cy="190" r="168" stroke-width="10"/>
+      <circle class="ring-track-inner" cx="190" cy="190" r="152" stroke-width="1"/>
+
+      <!-- Glow -->
+      <circle class="ring-glow" id="ringGlowEl"
+        cx="190" cy="190" r="168" stroke-width="14"
+        stroke="#c9a84c" stroke-dasharray="1056.64" stroke-dashoffset="0"/>
+
+      <!-- Progress -->
+      <circle class="ring-progress" id="ringProg"
+        cx="190" cy="190" r="168" stroke-width="10"
+        stroke="url(#rg)" stroke-dasharray="1056.64" stroke-dashoffset="0"/>
+
+      <!-- Tip dot -->
+      <circle id="ringDot" cx="358" cy="190" r="6.5" fill="#c9a84c" opacity="0"/>
+    </svg>
+
+    <div class="ring-center">
+      <div class="mode-label" id="modeLabel">WORK SESSION</div>
+      <div class="time-display" id="timeDisplay">25:00</div>
+      <div class="session-label" id="sessionLabel">Session 1 · Focus</div>
+    </div>
+  </div>
+
+  <!-- Task -->
+  <div class="task-name" id="taskName"></div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="ctrl ctrl-sm" onclick="skipSession()" title="Skip">⏭</button>
+    <button class="ctrl ctrl-main" id="mainBtn" onclick="toggleTimer()">START</button>
+    <button class="ctrl ctrl-sm" onclick="resetTimer()" title="Reset">↺</button>
+  </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════
+//  SHARED STATE (reads from localStorage written by pomodoro.html)
+// ════════════════════════════════════════════
+const R_RADIUS = 168;
+const CIRC = 2 * Math.PI * R_RADIUS; // 1056.64
+
+let CFG = {
+  workDur: 25, shortDur: 5, longDur: 15, cycle: 4,
+  autoBreak: false, autoWork: false,
+  sound: true, notif: false, volume: 0.7,
+  task: '',
+  workColor: '#c9a84c', breakColor: '#4a9a6a', accent: '#c9a84c',
+};
+
+let log = [];
+
+let mode = 'work';
+let running = false;
+let tickInterval = null;
+let remaining = 0, total = 0;
+let cyclePos = 0;
+let sessionStart = null;
+let audioCtx = null;
+
+// ════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════
+function init() {
+  loadSharedState();
+  buildTicks();
+  applySize();
+  setMode('work', true);
+  renderDots();
+
+  window.addEventListener('resize', applySize);
+
+  // Poll for setting changes from the other tab
+  window.addEventListener('storage', e => {
+    if (e.key === 'codex-focus-cfg' || e.key === 'codex-focus-log') {
+      loadSharedState();
+      renderDots();
+      updateSessionLabel();
+    }
+  });
+}
+
+function loadSharedState() {
+  try {
+    const c = localStorage.getItem('codex-focus-cfg');
+    const l = localStorage.getItem('codex-focus-log');
+    if (c) CFG = { ...CFG, ...JSON.parse(c) };
+    if (l) log = JSON.parse(l);
+  } catch (_) {}
+
+  // Sync task name display
+  const tn = document.getElementById('taskName');
+  tn.textContent = CFG.task || '';
+  tn.classList.toggle('empty', !CFG.task);
+}
+
+// ════════════════════════════════════════════
+//  RESPONSIVE SIZING
+// ════════════════════════════════════════════
+function applySize() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const avail = Math.min(vw * 0.72, vh * 0.62, 500);
+  const scale = avail / 380;
+
+  const rs = Math.round(avail);
+  const ts = Math.max(42, Math.round(80 * scale));
+  const bs = Math.max(56, Math.round(80 * scale));
+  const bf = Math.max(10, Math.round(12 * scale));
+  const tsk = Math.max(13, Math.round(18 * scale));
+  const tskMt = Math.round(16 * scale);
+  const tskMb = Math.round(28 * scale);
+
+  const root = document.documentElement;
+  root.style.setProperty('--ring-size', rs + 'px');
+  root.style.setProperty('--time-size', ts + 'px');
+  root.style.setProperty('--btn-size',  bs + 'px');
+  root.style.setProperty('--btn-font',  bf + 'px');
+  root.style.setProperty('--task-size', tsk + 'px');
+  root.style.setProperty('--task-mt',   tskMt + 'px');
+  root.style.setProperty('--task-mb',   tskMb + 'px');
+}
+
+// ════════════════════════════════════════════
+//  TICK MARKS
+// ════════════════════════════════════════════
+function buildTicks() {
+  const g = document.getElementById('ticks');
+  const cx = 190, cy = 190;
+  let h = '';
+  for (let i = 0; i < 60; i++) {
+    const angle = (i / 60) * 2 * Math.PI - Math.PI / 2;
+    const isMaj = i % 5 === 0;
+    const inner = isMaj ? R_RADIUS - 12 : R_RADIUS - 7;
+    const x1 = cx + inner * Math.cos(angle);
+    const y1 = cy + inner * Math.sin(angle);
+    const x2 = cx + R_RADIUS * Math.cos(angle);
+    const y2 = cy + R_RADIUS * Math.sin(angle);
+    const c = isMaj ? 'var(--t3)' : 'var(--border-l)';
+    h += `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="${c}" class="${isMaj ? 'tick-major' : 'tick-minor'}"/>`;
+  }
+  g.innerHTML = h;
+}
+
+// ════════════════════════════════════════════
+//  MODE
+// ════════════════════════════════════════════
+function switchMode(m) {
+  if (running) resetTimer();
+  setMode(m, true);
+}
+
+function setMode(m, resetTime) {
+  mode = m;
+  document.body.className = 'mode-' + m;
+  if (running) document.body.classList.add('running');
+
+  const labels = { work: 'WORK SESSION', short: 'SHORT BREAK', long: 'LONG BREAK' };
+  document.getElementById('modeLabel').textContent = labels[m];
+
+  applyColors();
+  if (resetTime) {
+    const mins = { work: CFG.workDur, short: CFG.shortDur, long: CFG.longDur }[m];
+    total = mins * 60;
+    remaining = total;
+    updateRing();
+  }
+}
+
+function applyColors() {
+  const c  = mode === 'work' ? CFG.workColor : CFG.breakColor;
+  const c2 = lighten(c);
+  document.getElementById('gs1').setAttribute('stop-color', c);
+  document.getElementById('gs2').setAttribute('stop-color', c2);
+  document.getElementById('ringGlowEl').setAttribute('stroke', c);
+  document.getElementById('ringDot').setAttribute('fill', c);
+  document.documentElement.style.setProperty('--clr-work',  CFG.workColor);
+  document.documentElement.style.setProperty('--clr-short', CFG.breakColor);
+  document.documentElement.style.setProperty('--clr-long',  CFG.breakColor);
+  document.documentElement.style.setProperty('--gold',   CFG.accent);
+  document.documentElement.style.setProperty('--gold-d', dim(CFG.accent));
+}
+
+// ════════════════════════════════════════════
+//  TIMER
+// ════════════════════════════════════════════
+function toggleTimer() {
+  running ? pause() : start();
+}
+
+function start() {
+  running = true;
+  if (!sessionStart) sessionStart = new Date();
+  document.getElementById('mainBtn').textContent = 'PAUSE';
+  document.getElementById('mainBtn').classList.add('running');
+  document.body.classList.add('running');
+  tickInterval = setInterval(tick, 1000);
+}
+
+function pause() {
+  running = false;
+  clearInterval(tickInterval); tickInterval = null;
+  document.getElementById('mainBtn').textContent = 'START';
+  document.getElementById('mainBtn').classList.remove('running');
+  document.body.classList.remove('running');
+}
+
+function resetTimer() {
+  pause();
+  sessionStart = null;
+  const mins = { work: CFG.workDur, short: CFG.shortDur, long: CFG.longDur }[mode];
+  total = mins * 60;
+  remaining = total;
+  updateRing();
+}
+
+function skipSession() {
+  if (running) pause();
+  onComplete(false);
+}
+
+function tick() {
+  remaining--;
+  if (remaining <= 0) {
+    remaining = 0;
+    updateRing();
+    onComplete(true);
+    return;
+  }
+  updateRing();
+}
+
+// ════════════════════════════════════════════
+//  COMPLETE
+// ════════════════════════════════════════════
+function onComplete(natural) {
+  pause();
+  const now = new Date();
+  const dur = sessionStart ? Math.floor((now - sessionStart) / 1000) : total;
+
+  if (natural || dur > 30) {
+    const entry = {
+      id: Date.now(), type: mode, task: CFG.task,
+      startTime: (sessionStart || now).toISOString(),
+      duration: dur, timestamp: now.toISOString(), natural,
+    };
+    log.unshift(entry);
+    saveLog();
+  }
+
+  sessionStart = null;
+  if (natural && CFG.sound) playChime(mode === 'work');
+  if (natural && CFG.notif && Notification.permission === 'granted') {
+    const msgs = { work: 'Session complete! Time for a break.', short: 'Break over.', long: 'Long break done.' };
+    new Notification('Meridian Focus', { body: msgs[mode] });
+  }
+  if (natural) toast(mode === 'work' ? 'Session complete.' : 'Break over.', 'ok');
+
+  if (mode === 'work') {
+    if (natural) cyclePos++;
+    renderDots();
+    const next = cyclePos >= CFG.cycle ? 'long' : 'short';
+    if (natural && cyclePos >= CFG.cycle) cyclePos = 0;
+    setMode(next, true);
+    if (CFG.autoBreak && natural) start();
+  } else {
+    setMode('work', true);
+    if (CFG.autoWork && natural) start();
+  }
+}
+
+// ════════════════════════════════════════════
+//  RING
+// ════════════════════════════════════════════
+function updateRing() {
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+  document.getElementById('timeDisplay').textContent = pad(m) + ':' + pad(s);
+
+  const progress = total > 0 ? remaining / total : 1;
+  const offset = CIRC * (1 - progress);
+  document.getElementById('ringProg').setAttribute('stroke-dashoffset', offset.toFixed(3));
+  document.getElementById('ringGlowEl').setAttribute('stroke-dashoffset', offset.toFixed(3));
+
+  // Tip dot position — angle tracks the remaining arc's endpoint
+  const angle = progress * 2 * Math.PI;
+  const cx = 190 + R_RADIUS * Math.cos(angle);
+  const cy = 190 + R_RADIUS * Math.sin(angle);
+  const dot = document.getElementById('ringDot');
+  dot.setAttribute('cx', cx.toFixed(2));
+  dot.setAttribute('cy', cy.toFixed(2));
+  dot.setAttribute('opacity', progress < 0.995 && progress > 0.005 ? '1' : '0');
+
+  updateSessionLabel();
+  document.title = `${pad(m)}:${pad(s)} — Meridian Focus`;
+}
+
+function updateSessionLabel() {
+  const workCount = log.filter(e => e.type === 'work').length;
+  const lbl = { work: 'Focus', short: 'Short Break', long: 'Long Break' }[mode];
+  document.getElementById('sessionLabel').textContent = `Session ${workCount + (mode === 'work' ? 1 : 0)} · ${lbl}`;
+}
+
+// ════════════════════════════════════════════
+//  SESSION DOTS
+// ════════════════════════════════════════════
+function renderDots() {
+  let h = '';
+  for (let i = 0; i < CFG.cycle; i++) {
+    if (i < cyclePos) h += `<div class="s-dot done"></div>`;
+    else if (i === cyclePos && mode === 'work') h += `<div class="s-dot current"></div>`;
+    else h += `<div class="s-dot"></div>`;
+  }
+  document.getElementById('sessionDots').innerHTML = h;
+}
+
+// ════════════════════════════════════════════
+//  SOUND
+// ════════════════════════════════════════════
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playChime(ascend) {
+  try {
+    const ctx = getAudio();
+    const notes = ascend ? [523.25, 659.25, 783.99] : [783.99, 659.25, 523.25];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.2;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(CFG.volume * 0.35, t + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+      osc.start(t); osc.stop(t + 0.7);
+    });
+  } catch (_) {}
+}
+
+// ════════════════════════════════════════════
+//  PERSISTENCE
+// ════════════════════════════════════════════
+function saveLog() {
+  try { localStorage.setItem('codex-focus-log', JSON.stringify(log)); } catch (_) {}
+}
+
+// ════════════════════════════════════════════
+//  KEYBOARD
+// ════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === ' ')                    { e.preventDefault(); toggleTimer(); }
+  else if (e.key === 'r' || e.key === 'R') resetTimer();
+  else if (e.key === 's' || e.key === 'S') skipSession();
+  else if (e.key === '1') switchMode('work');
+  else if (e.key === '2') switchMode('short');
+  else if (e.key === '3') switchMode('long');
+});
+
+// Correct time drift on tab refocus
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && running && sessionStart) {
+    const elapsed = Math.floor((Date.now() - sessionStart.getTime()) / 1000);
+    const mins = { work: CFG.workDur, short: CFG.shortDur, long: CFG.longDur }[mode];
+    const t = mins * 60;
+    const newRem = Math.max(0, t - elapsed);
+    if (newRem !== remaining) {
+      remaining = newRem;
+      updateRing();
+      if (remaining === 0) onComplete(true);
+    }
+  }
+});
+
+// ════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function lighten(hex) {
+  try {
+    const r = Math.min(255, parseInt(hex.slice(1,3),16) + 45);
+    const g = Math.min(255, parseInt(hex.slice(3,5),16) + 45);
+    const b = Math.min(255, parseInt(hex.slice(5,7),16) + 45);
+    return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+  } catch { return hex; }
+}
+
+function dim(hex) {
+  try {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgb(${Math.round(r*.56)},${Math.round(g*.56)},${Math.round(b*.56)})`;
+  } catch { return hex; }
+}
+
+function toast(msg, t = 'ok') {
+  const el = document.createElement('div');
+  el.className = `toast ${t}`; el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+init();
+</script>
+</body>
+</html>

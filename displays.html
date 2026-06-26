@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meridian — Displays</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #111009;
+      --bg-dark: #181510;
+      --bg-card: #1e1a13;
+      --bg-elev: #28231a;
+      --border: #3a2f1e;
+      --border-l: #52432b;
+      --gold: #c9a84c;
+      --gold-d: #7a621c;
+      --gold-g: rgba(201,168,76,.13);
+      --cream: #ede3d0;
+      --t1: #ddd3bc;
+      --t2: #8a7a60;
+      --t3: #524535;
+      --clr-work: #c9a84c;
+      --clr-short: #4a9a6a;
+      --clr-long: #4a7aaa;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--t1);
+      display: flex;
+      flex-direction: column;
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── NAV BAR ── */
+    .hub-bar {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      background: var(--bg-dark);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .hub-logo {
+      font-family: 'Cinzel', serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--gold);
+      letter-spacing: .16em;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .hub-links {
+      display: flex;
+      gap: 4px;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .hub-link {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 16px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      color: var(--t2);
+      text-decoration: none;
+      transition: all .15s;
+    }
+    .hub-link:hover { color: var(--cream); border-color: var(--border); }
+    .hub-link.active { color: var(--gold); border-color: var(--border-l); background: var(--bg-elev); }
+
+    /* ── MAIN ── */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 52px 24px 48px;
+      position: relative;
+    }
+
+    main::before {
+      content: '';
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 700px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(201,168,76,.03) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    /* ── PAGE HEADER ── */
+    .page-hdr {
+      text-align: center;
+      margin-bottom: 44px;
+      position: relative;
+    }
+    .page-title {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gold);
+      letter-spacing: .22em;
+      margin-bottom: 8px;
+    }
+    .page-rule {
+      width: 48px;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--gold-d), transparent);
+      margin: 0 auto 10px;
+    }
+    .page-sub {
+      font-family: 'Playfair Display', serif;
+      font-size: 13px;
+      color: var(--t3);
+      font-style: italic;
+    }
+
+    /* ── DISPLAY CARDS ── */
+    .display-grid {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+      position: relative;
+    }
+
+    .display-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 340px;
+      overflow: hidden;
+      transition: border-color .2s, transform .2s;
+    }
+    .display-card:hover {
+      border-color: var(--border-l);
+      transform: translateY(-2px);
+    }
+
+    .display-preview {
+      height: 180px;
+      background: #0e0c09;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Focus Display preview mockup */
+    .preview-focus {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+      z-index: 1;
+    }
+    .preview-ring {
+      width: 90px; height: 90px;
+      border-radius: 50%;
+      border: 3px solid rgba(201,168,76,.15);
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .preview-ring::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      border-top-color: var(--gold);
+      border-right-color: var(--gold);
+    }
+    .preview-time {
+      font-family: 'Cinzel', serif;
+      font-size: 22px;
+      color: var(--cream);
+      letter-spacing: .04em;
+    }
+    .preview-label {
+      font-size: 10px;
+      color: var(--t3);
+      letter-spacing: .1em;
+    }
+    .preview-glow {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(201,168,76,.06) 0%, transparent 70%);
+    }
+    .preview-logo {
+      position: absolute;
+      top: 12px; left: 14px;
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      color: var(--t3);
+      letter-spacing: .12em;
+    }
+    .preview-modes {
+      position: absolute;
+      top: 10px; right: 12px;
+      display: flex; gap: 4px;
+    }
+    .preview-mode-pill {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      color: var(--t3);
+    }
+    .preview-mode-pill.work { border-color: rgba(201,168,76,.3); color: var(--gold); }
+
+    .display-body {
+      padding: 20px 22px 22px;
+    }
+    .display-name {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--cream);
+      letter-spacing: .1em;
+      margin-bottom: 8px;
+    }
+    .display-desc {
+      font-size: 12px;
+      color: var(--t2);
+      line-height: 1.65;
+      margin-bottom: 18px;
+    }
+    .display-tags {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .display-tag {
+      font-size: 10px;
+      padding: 3px 9px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      color: var(--t3);
+      letter-spacing: .05em;
+    }
+    .display-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-launch {
+      flex: 1;
+      padding: 9px;
+      border-radius: 5px;
+      border: 1px solid var(--gold-d);
+      background: rgba(201,168,76,.08);
+      color: var(--gold);
+      font-size: 12px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      transition: all .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-launch:hover { background: rgba(201,168,76,.16); border-color: var(--gold); }
+    .btn-launch-ghost {
+      flex: 0 0 auto;
+      padding: 9px 14px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--t2);
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      transition: all .15s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn-launch-ghost:hover { border-color: var(--border-l); color: var(--cream); }
+
+    /* Timer display live preview */
+    .preview-dots {
+      display: flex; gap: 5px; margin-top: 4px;
+    }
+    .preview-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: rgba(201,168,76,.2);
+    }
+    .preview-dot.filled { background: var(--gold); }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="hub-bar">
+    <a href="index.html" class="hub-logo">MERIDIAN</a>
+    <div class="hub-links">
+      <a href="index.html" class="hub-link">Home</a>
+      <a href="dashboards.html" class="hub-link">Dashboards</a>
+      <a href="displays.html" class="hub-link active">Displays</a>
+    </div>
+  </nav>
+
+  <!-- CONTENT -->
+  <main>
+    <div class="page-hdr">
+      <div class="page-title">DISPLAYS</div>
+      <div class="page-rule"></div>
+      <div class="page-sub">Fullscreen views for deep work and ambient focus</div>
+    </div>
+
+    <div class="display-grid">
+
+      <!-- Focus Display -->
+      <div class="display-card">
+        <div class="display-preview">
+          <div class="preview-glow"></div>
+          <span class="preview-logo">MERIDIAN</span>
+          <div class="preview-modes">
+            <span class="preview-mode-pill work">Work</span>
+            <span class="preview-mode-pill">Break</span>
+            <span class="preview-mode-pill">Long</span>
+          </div>
+          <div class="preview-focus">
+            <div class="preview-ring">
+              <div>
+                <div class="preview-time" id="previewTime">25:00</div>
+              </div>
+            </div>
+            <div class="preview-label">FOCUS SESSION</div>
+            <div class="preview-dots">
+              <div class="preview-dot filled"></div>
+              <div class="preview-dot filled"></div>
+              <div class="preview-dot"></div>
+              <div class="preview-dot"></div>
+            </div>
+          </div>
+        </div>
+        <div class="display-body">
+          <div class="display-name">FOCUS DISPLAY</div>
+          <div class="display-desc">
+            Minimalist fullscreen Pomodoro timer. Designed for secondary monitors, projectors, and ambient display during deep work sessions. Syncs live with the Focus Timer dashboard.
+          </div>
+          <div class="display-tags">
+            <span class="display-tag">Fullscreen</span>
+            <span class="display-tag">Synced</span>
+            <span class="display-tag">Keyboard shortcuts</span>
+            <span class="display-tag">Work · Break · Long</span>
+          </div>
+          <div class="display-actions">
+            <a href="pomodoro-display.html" target="_blank" class="btn-launch">
+              ↗ Open in New Tab
+            </a>
+            <a href="pomodoro-display.html" class="btn-launch-ghost" onclick="goFullscreen(event, 'pomodoro-display.html')">
+              ⛶ Fullscreen
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // Live preview clock
+    function tickPreview() {
+      const log = JSON.parse(localStorage.getItem('codex-focus-log') || '[]');
+      const cfg = JSON.parse(localStorage.getItem('codex-focus-cfg') || '{}');
+      // just show work duration from config or default 25m
+      const workMins = cfg.work || 25;
+      document.getElementById('previewTime').textContent =
+        String(workMins).padStart(2,'0') + ':00';
+    }
+    tickPreview();
+
+    // Open in fullscreen window
+    function goFullscreen(e, url) {
+      e.preventDefault();
+      const w = window.open(url, 'meridian-display',
+        'width=' + screen.width + ',height=' + screen.height + ',fullscreen=yes');
+      if (w) {
+        w.onload = () => {
+          try { w.document.documentElement.requestFullscreen(); } catch(_) {}
+        };
+      }
+    }
+  </script>
+</body>
+</html>

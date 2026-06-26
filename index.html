@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meridian</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #111009;
+      --bg-dark: #181510;
+      --bg-elev: #28231a;
+      --border: #3a2f1e;
+      --border-l: #52432b;
+      --gold: #c9a84c;
+      --gold-d: #7a621c;
+      --cream: #ede3d0;
+      --t1: #ddd3bc;
+      --t2: #8a7a60;
+      --t3: #524535;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--t1);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── NAV ── */
+    .nav {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      background: var(--bg-dark);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .nav-logo {
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--gold);
+      letter-spacing: .18em;
+      text-decoration: none;
+    }
+    .nav-links {
+      display: flex;
+      gap: 3px;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .nav-link {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 14px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      color: var(--t2);
+      text-decoration: none;
+      transition: color .15s, border-color .15s, background .15s;
+    }
+    .nav-link:hover { color: var(--cream); border-color: var(--border); }
+    .nav-link.active { color: var(--gold); border-color: var(--border-l); background: var(--bg-elev); }
+
+    /* ── MAIN ── */
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 32px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    main::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 560px; height: 380px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(201,168,76,.038) 0%, transparent 68%);
+      pointer-events: none;
+    }
+
+    /* ── PORTAL ── */
+    .portal {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 460px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* TITLE */
+    .p-title {
+      text-align: center;
+      margin-bottom: 38px;
+    }
+    .p-name {
+      font-family: 'Cinzel', serif;
+      font-size: 40px;
+      font-weight: 600;
+      color: var(--gold);
+      letter-spacing: .24em;
+      line-height: 1;
+      margin-bottom: 13px;
+    }
+    .p-sub {
+      font-family: 'Playfair Display', serif;
+      font-size: 13px;
+      color: var(--t2);
+      font-style: italic;
+      letter-spacing: .04em;
+      margin-bottom: 9px;
+    }
+    .p-clock {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      color: var(--t3);
+      letter-spacing: .15em;
+    }
+
+    /* RULE */
+    .p-rule {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--border), transparent);
+      margin-bottom: 34px;
+    }
+
+    /* GRID */
+    .p-grid {
+      display: flex;
+      width: 100%;
+      margin-bottom: 34px;
+    }
+    .p-col {
+      flex: 1;
+    }
+    .p-col:first-child { padding-right: 44px; }
+    .p-col + .p-col {
+      border-left: 1px solid var(--border);
+      padding-left: 44px;
+    }
+    .p-col-head {
+      font-family: 'Cinzel', serif;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .28em;
+      color: var(--t3);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 11px;
+      transition: color .15s;
+    }
+    .p-col-head:hover { color: var(--gold); }
+    .p-col-divider {
+      height: 1px;
+      background: var(--border);
+      margin-bottom: 12px;
+    }
+    .p-link {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 13px;
+      color: var(--t1);
+      text-decoration: none;
+      padding: 7px 0;
+      transition: color .15s, padding-left .12s;
+    }
+    .p-link::before {
+      content: '';
+      width: 3px; height: 3px;
+      border-radius: 50%;
+      background: var(--gold-d);
+      flex-shrink: 0;
+      transition: background .15s;
+    }
+    .p-link:hover { color: var(--gold); padding-left: 3px; }
+    .p-link:hover::before { background: var(--gold); }
+
+    /* STATS */
+    .p-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 18px;
+      justify-content: center;
+    }
+    .p-stat {
+      font-size: 11px;
+      color: var(--t3);
+      letter-spacing: .02em;
+    }
+    .p-stat strong { color: var(--gold); font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <a href="index.html" class="nav-logo">MERIDIAN</a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link active">Home</a>
+      <a href="dashboards.html" class="nav-link">Dashboards</a>
+      <a href="displays.html" class="nav-link">Displays</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="portal">
+
+      <div class="p-title">
+        <div class="p-name">MERIDIAN</div>
+        <div class="p-sub">Your focused productivity suite</div>
+        <div class="p-clock" id="clock">—</div>
+      </div>
+
+      <div class="p-rule"></div>
+
+      <div class="p-grid">
+        <div class="p-col">
+          <a href="dashboards.html" class="p-col-head">DASHBOARDS ↗</a>
+          <div class="p-col-divider"></div>
+          <a href="timetable.html" class="p-link">Weekly Planner</a>
+          <a href="pomodoro.html" class="p-link">Focus Timer</a>
+        </div>
+        <div class="p-col">
+          <a href="displays.html" class="p-col-head">DISPLAYS ↗</a>
+          <div class="p-col-divider"></div>
+          <a href="pomodoro-display.html" class="p-link" target="_blank">Focus Display</a>
+        </div>
+      </div>
+
+      <div class="p-rule" id="stats-rule" style="display:none"></div>
+      <div class="p-stats" id="stats"></div>
+
+    </div>
+  </main>
+
+  <script>
+    // Clock
+    function tick() {
+      const d = new Date();
+      const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const h = String(d.getHours()).padStart(2,'0');
+      const m = String(d.getMinutes()).padStart(2,'0');
+      const s = String(d.getSeconds()).padStart(2,'0');
+      document.getElementById('clock').textContent =
+        days[d.getDay()] + '  ·  ' + d.getDate() + ' ' + months[d.getMonth()] + '  ·  ' + h + ':' + m + ':' + s;
+    }
+    tick();
+    setInterval(tick, 1000);
+
+    // Stats from localStorage
+    (function loadStats() {
+      const pairs = [];
+      try {
+        const log = JSON.parse(localStorage.getItem('codex-focus-log') || '[]');
+        if (log.length) {
+          const today = new Date().toDateString();
+          const tw = log.filter(e => e.type === 'work' && new Date(e.timestamp).toDateString() === today);
+          const mins = Math.round(tw.reduce((a,e) => a + (e.duration||0), 0) / 60);
+          pairs.push('Focus today', mins ? mins + 'm' : '—');
+          pairs.push('Sessions', String(tw.length));
+          const days = new Set(log.filter(e => e.type==='work').map(e => new Date(e.timestamp).toDateString()));
+          let streak = 0, d = new Date();
+          while (days.has(d.toDateString())) { streak++; d.setDate(d.getDate()-1); }
+          if (streak) pairs.push('Streak', streak + 'd');
+        }
+      } catch(_) {}
+      try {
+        const life = JSON.parse(localStorage.getItem('codex-life') || 'null');
+        if (life && life.cells) {
+          const n = Object.values(life.cells).filter(c => c && c.title).length;
+          if (n) pairs.push('Scheduled blocks', String(n));
+        }
+      } catch(_) {}
+      if (!pairs.length) return;
+      document.getElementById('stats-rule').style.display = '';
+      let html = '';
+      for (let i = 0; i < pairs.length; i += 2) {
+        if (i) html += '<span class="p-stat" style="color:var(--border-l)">·</span>';
+        html += `<span class="p-stat">${pairs[i]}&ensp;<strong>${pairs[i+1]}</strong></span>`;
+      }
+      document.getElementById('stats').innerHTML = html;
+    })();
+  </script>
+</body>
+</html>
