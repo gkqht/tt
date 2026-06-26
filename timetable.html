@@ -1465,7 +1465,8 @@
     function cDragOver(e, key) {
       if (DS.cellKey || DS.tIdx !== null) {
         e.preventDefault();
-        const isDup = DS.isDuplicate || e.altKey;
+        if (DS.cellKey) DS.isDuplicate = e.altKey; // track live so cDrop doesn't need e.altKey
+        const isDup = DS.isDuplicate;
         e.dataTransfer.dropEffect = (DS.tIdx !== null || isDup) ? 'copy' : 'move';
         document.querySelectorAll('.tt-cell.drop-target').forEach(el => el.classList.remove('drop-target'));
         if (DS.cellKey) {
@@ -1513,7 +1514,7 @@
       }
       const src = DS.cellKey;
       if (!src || src === key) { cDragEnd(); return; }
-      const isDup = DS.isDuplicate || e.altKey;
+      const isDup = DS.isDuplicate;
       const srcData = S.cells[src] ? clone(S.cells[src]) : null;
       const dstData = S.cells[key] ? clone(S.cells[key]) : null;
       const srcSpan = srcData?.span || 1;
