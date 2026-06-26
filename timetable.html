@@ -1927,6 +1927,14 @@
       const picked = new Date(val + 'T12:00:00');
       picked.setDate(picked.getDate() - _pendingDayIdx);
       S.meta.startDate = picked.toISOString().split('T')[0];
+      // Propagate to all other weeks at ±7 days per index offset
+      weeks[currentWeekIdx] = clone(S);
+      weeks.forEach((w, i) => {
+        if (i === currentWeekIdx) return;
+        const d = new Date(picked);
+        d.setDate(d.getDate() + (i - currentWeekIdx) * 7);
+        w.meta.startDate = d.toISOString().split('T')[0];
+      });
       closeDayDatePop();
       save(); renderTT(); renderWeekNav();
     }
