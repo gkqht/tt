@@ -558,9 +558,34 @@
       color: var(--gold-d);
       letter-spacing: .1em;
       text-align: center;
-      /* Center the date range as well */
       margin-top: 8px;
-      /* Add some breathing room below the title */
+    }
+
+    .week-nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .week-nav-pos {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      color: var(--gold);
+      letter-spacing: .08em;
+      min-width: 90px;
+      text-align: center;
+    }
+
+    .week-nav .btn-icon {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      padding: 0;
+      border-radius: 4px;
     }
 
     /* grid */
@@ -1259,6 +1284,11 @@
             <div class="tt-title" id="ttTitle">My Week</div>
             <div class="tt-sub" id="ttSub" style="display:none"></div>
           </div>
+          <div class="week-nav">
+            <button class="btn btn-ghost btn-icon" onclick="navigateWeek(-1)" title="Previous week">&#9664;</button>
+            <span class="week-nav-pos" id="weekNavPos">Week 1 of 1</span>
+            <button class="btn btn-ghost btn-icon" onclick="navigateWeek(1)" title="Next week">&#9654;</button>
+          </div>
           <div class="tt-week" id="ttWeek"></div>
         </div>
         <div class="tt-grid-wrap">
@@ -1312,19 +1342,28 @@
         </div>
       </div>
 
-      <!-- NEW BACKUP SECTION -->
-      <div class="sec-hd" style="margin-top: 24px; margin-bottom: 12px; border-bottom: 1px solid var(--border);">Backup
-        & Sync</div>
-      <div class="exp-grid">
-        <div class="exp-c" onclick="downloadBackup();closeExp()">
+      <!-- BACKUP SECTION -->
+      <div class="sec-hd" style="margin-top:24px;margin-bottom:12px;border-bottom:1px solid var(--border);">Backup &amp; Sync</div>
+      <div class="exp-grid" style="grid-template-columns:repeat(2,1fr)">
+        <div class="exp-c" onclick="downloadThisWeek();closeExp()">
           <div class="exp-ic">💾</div>
-          <div class="exp-nm">Download Backup</div>
-          <div class="exp-sz">Save as .json file</div>
+          <div class="exp-nm">This Week</div>
+          <div class="exp-sz">Export current week only</div>
+        </div>
+        <div class="exp-c" onclick="downloadAllWeeks();closeExp()">
+          <div class="exp-ic">📦</div>
+          <div class="exp-nm">All Weeks</div>
+          <div class="exp-sz">Export every week together</div>
         </div>
         <div class="exp-c" onclick="triggerImport();closeExp()">
           <div class="exp-ic">📁</div>
           <div class="exp-nm">Import Backup</div>
-          <div class="exp-sz">Upload .json file</div>
+          <div class="exp-sz">Single week or all weeks</div>
+        </div>
+        <div class="exp-c" onclick="deleteCurrentWeek();closeExp()" style="border-color:rgba(200,60,60,.35)">
+          <div class="exp-ic">🗑</div>
+          <div class="exp-nm" style="color:#e07070">Delete This Week</div>
+          <div class="exp-sz">Remove &amp; go to previous</div>
         </div>
       </div>
       <input type="file" id="importInp" style="display:none" accept=".json" onchange="handleImport(event)">
@@ -1388,6 +1427,7 @@
     };
 
     let S = clone(DEF);
+    let weeks = [], currentWeekIdx = 0;
     let editKey = null, pendColor = null, pendSpan = 1, isTemplateMode = false;
     let selectedKey = null;
     let copiedCell = null;
@@ -1740,13 +1780,67 @@
     //  INIT & RENDER
     // ════════════════════════════════════════════
     function init() {
-      try { const sv = localStorage.getItem('codex-life'); if (sv) S = JSON.parse(sv); } catch (e) { }
+      try {
+        const sv = localStorage.getItem('codex-life');
+        if (sv) {
+          const parsed = JSON.parse(sv);
+          if (Array.isArray(parsed.weeks)) {
+            weeks = parsed.weeks;
+            currentWeekIdx = Math.max(0, Math.min(parsed.currentWeekIdx || 0, weeks.length - 1));
+          } else if (parsed.meta && parsed.days) {
+            weeks = [parsed]; currentWeekIdx = 0;
+          }
+        }
+      } catch (e) {}
+      if (!weeks.length) weeks = [clone(DEF)];
+      S = clone(weeks[currentWeekIdx]);
       _hist.push(clone(S)); _histIdx = 0;
-      syncUI(); renderSB(); renderTT(); bindEv();
+      syncUI(); renderSB(); renderTT(); renderWeekNav(); bindEv();
     }
 
     function save() {
-      try { localStorage.setItem('codex-life', JSON.stringify(S)); } catch (e) { }
+      try {
+        weeks[currentWeekIdx] = clone(S);
+        localStorage.setItem('codex-life', JSON.stringify({ weeks, currentWeekIdx }));
+      } catch (e) {}
+    }
+
+    function renderWeekNav() {
+      g('weekNavPos').textContent = `Week ${currentWeekIdx + 1} of ${weeks.length}`;
+    }
+
+    function navigateWeek(delta) {
+      weeks[currentWeekIdx] = clone(S);
+      const newIdx = currentWeekIdx + delta;
+      if (newIdx < 0) { toast('Already at the first week', 'er'); return; }
+      if (newIdx >= weeks.length) {
+        const w = clone(DEF);
+        w.cfg = clone(S.cfg);
+        w.days = clone(S.days);
+        w.periods = clone(S.periods);
+        w.templates = clone(S.templates);
+        weeks.push(w);
+      }
+      currentWeekIdx = newIdx;
+      S = clone(weeks[currentWeekIdx]);
+      _hist.length = 0; _histIdx = -1;
+      _hist.push(clone(S)); _histIdx = 0;
+      clearSelection();
+      save(); syncUI(); renderSB(); renderTT(); renderWeekNav();
+      toast(`Week ${currentWeekIdx + 1}`, 'ok');
+    }
+
+    function deleteCurrentWeek() {
+      if (weeks.length <= 1) { resetAll(); return; }
+      if (!confirm('Delete this week?')) return;
+      weeks.splice(currentWeekIdx, 1);
+      currentWeekIdx = Math.max(0, currentWeekIdx - 1);
+      S = clone(weeks[currentWeekIdx]);
+      _hist.length = 0; _histIdx = -1;
+      _hist.push(clone(S)); _histIdx = 0;
+      clearSelection();
+      save(); syncUI(); renderSB(); renderTT(); renderWeekNav();
+      toast('Week deleted', 'ok');
     }
 
     function syncUI() {
@@ -1972,19 +2066,30 @@
     // ════════════════════════════════════════════
     //  BACKUP & RESTORE LOGIC
     // ════════════════════════════════════════════
-    function downloadBackup() {
-      const dataStr = JSON.stringify(S, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
+    function downloadThisWeek() {
+      const date = new Date().toISOString().split('T')[0];
+      const label = S.meta.week ? S.meta.week.replace(/\s+/g, '-') : `week-${currentWeekIdx + 1}`;
+      const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `codex-backup-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast('Backup downloaded!', 'ok');
+      a.href = url; a.download = `codex-${label}-${date}.json`;
+      a.click(); URL.revokeObjectURL(url);
+      toast('Week exported!', 'ok');
+    }
+
+    function downloadAllWeeks() {
+      weeks[currentWeekIdx] = clone(S);
+      const date = new Date().toISOString().split('T')[0];
+      const blob = new Blob([JSON.stringify({ weeks, currentWeekIdx }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `codex-all-weeks-${date}.json`;
+      a.click(); URL.revokeObjectURL(url);
+      toast('All weeks exported!', 'ok');
     }
 
     function triggerImport() {
+      g('importInp').value = '';
       g('importInp').click();
     }
 
@@ -1995,17 +2100,26 @@
       reader.onload = function (e) {
         try {
           const imported = JSON.parse(e.target.result);
-          // Basic validation
-          if (imported.meta && imported.cfg && imported.days) {
-            S = imported;
-            save();
-            syncUI();
-            renderSB();
-            renderTT();
-            toast('Planner restored!', 'ok');
+          if (Array.isArray(imported.weeks)) {
+            // Multi-week backup
+            if (!confirm(`Import ${imported.weeks.length} week(s)? This replaces all current data.`)) return;
+            weeks = imported.weeks;
+            currentWeekIdx = Math.max(0, Math.min(imported.currentWeekIdx || 0, weeks.length - 1));
+            S = clone(weeks[currentWeekIdx]);
+          } else if (imported.meta && imported.days) {
+            // Single-week backup — insert after current week
+            weeks[currentWeekIdx] = clone(S);
+            weeks.splice(currentWeekIdx + 1, 0, imported);
+            currentWeekIdx++;
+            S = clone(weeks[currentWeekIdx]);
           } else {
             throw new Error('Invalid format');
           }
+          _hist.length = 0; _histIdx = -1;
+          _hist.push(clone(S)); _histIdx = 0;
+          clearSelection();
+          save(); syncUI(); renderSB(); renderTT(); renderWeekNav();
+          toast('Imported!', 'ok');
         } catch (err) {
           toast('Failed to load backup', 'er');
         }
@@ -2206,38 +2320,16 @@
       }, 'image/png');
     }
 
-    function downloadBackup() {
-      const dataStr = JSON.stringify(S, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `codex-backup-${new Date().toISOString().split('T')[0]}.json`;
-      a.click(); URL.revokeObjectURL(url);
-      toast('Backup downloaded!', 'ok');
-    }
-
-    function triggerImport() { g('importInp').click(); }
-
-    function handleImport(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        try {
-          const imported = JSON.parse(e.target.result);
-          if (imported.meta && imported.days) {
-            S = imported; save(); syncUI(); renderSB(); renderTT();
-            toast('Planner restored!', 'ok');
-          }
-        } catch (err) { toast('Failed to load backup', 'er'); }
-      };
-      reader.readAsText(file);
-    }
-
     function resetAll() {
       if (!confirm('Reset everything to blank?')) return;
       localStorage.removeItem('codex-life');
-      S = clone(DEF); syncUI(); renderSB(); renderTT(); toast('Reset.', 'ok');
+      weeks = [clone(DEF)]; currentWeekIdx = 0;
+      S = clone(DEF);
+      _hist.length = 0; _histIdx = -1;
+      _hist.push(clone(S)); _histIdx = 0;
+      clearSelection();
+      syncUI(); renderSB(); renderTT(); renderWeekNav();
+      toast('Reset.', 'ok');
     }
 
     function g(id) { return document.getElementById(id); }
