@@ -2253,8 +2253,9 @@
           if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); redo(); }
         }
       });
-      document.addEventListener('dragstart', () => _dragging = true);
-      document.addEventListener('dragend', () => setTimeout(() => _dragging = false, 100));
+      document.addEventListener('dragstart', () => { _dragging = true; clearSelection(); });
+      document.addEventListener('dragend', () => requestAnimationFrame(() => { _dragging = false; }));
+      document.addEventListener('mouseup', () => { if (_dragging) requestAnimationFrame(() => { _dragging = false; }); });
     }
 
     init();
