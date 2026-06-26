@@ -1473,27 +1473,42 @@
       const dstDayId = key.split('-')[0];
       const dstPeriodId = key.split('-').slice(1).join('-');
 
+      // Period ID arrays for source and destination footprints
+      const srcPIdx = S.periods.findIndex(p => p.id === srcPeriodId);
+      const dstPIdx = S.periods.findIndex(p => p.id === dstPeriodId);
+      const srcPIds = [srcPeriodId, ...getCoveredIds(srcPIdx, srcSpan)];
+      // Destination footprint uses srcSpan size — that's where the block will land
+      const dstPIds = [dstPeriodId, ...getCoveredIds(dstPIdx, srcSpan)];
+
       if (isDup) {
-        // Clear destination's existing span only; source untouched
-        clearDestSpan(dstDayId, dstPeriodId, dstSpan);
+        // Clear enough room for the copy (max of existing block and incoming)
+        clearDestSpan(dstDayId, dstPeriodId, Math.max(dstSpan, srcSpan));
         if (srcData) S.cells[key] = srcData;
         cDragEnd(); renderTT();
         toast('Block duplicated', 'ok');
         return;
       }
 
-      // 1. Clear source's own span footprint (prevents covered cells "popping back")
-      clearDestSpan(srcDayId, srcPeriodId, srcSpan);
-      // 2. Clear only the destination's existing span footprint (not srcSpan —
-      //    the render's getCoveredIds hides whatever sits under the incoming block)
-      clearDestSpan(dstDayId, dstPeriodId, dstSpan);
+      // Snapshot all destination cells in the incoming block's footprint BEFORE any changes
+      const dstSnapshot = dstPIds.map(pid => {
+        const k = `${dstDayId}-${pid}`;
+        return S.cells[k] ? clone(S.cells[k]) : null;
+      });
+
+      // 1. Clear source's full span footprint
+      srcPIds.forEach(pid => delete S.cells[`${srcDayId}-${pid}`]);
+      // 2. Clear destination: whichever is larger — existing block or incoming block
+      clearDestSpan(dstDayId, dstPeriodId, Math.max(dstSpan, srcSpan));
       // 3. Place source at destination
       if (srcData) S.cells[key] = srcData;
-      // 4. Swap: place destination content back at source
-      if (dstData) S.cells[src] = dstData;
+      // 4. Send each destination cell back to its matching source slot
+      dstSnapshot.forEach((cellData, i) => {
+        if (cellData) S.cells[`${srcDayId}-${srcPIds[i]}`] = cellData;
+      });
 
+      const hadContent = dstSnapshot.some(c => c !== null);
       cDragEnd(); renderTT();
-      toast(dstData ? 'Blocks swapped' : 'Block moved', 'ok');
+      toast(hadContent ? 'Blocks swapped' : 'Block moved', 'ok');
     }
 
     function cDragEnd() {
