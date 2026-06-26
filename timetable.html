@@ -645,11 +645,17 @@
     /* day label */
     .tt-day {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 4px;
       border-right: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .12s;
     }
+
+    .tt-day:hover { filter: brightness(1.12); }
 
     .tt-day-lbl {
       font-family: 'Playfair Display', serif;
@@ -657,6 +663,59 @@
       font-weight: 700;
       color: var(--cream);
       letter-spacing: .04em;
+      text-align: center;
+    }
+
+    .day-date-pick {
+      font-size: 9px;
+      color: var(--gold-d);
+      opacity: 0;
+      transition: opacity .15s;
+      letter-spacing: .04em;
+    }
+
+    .tt-day:hover .day-date-pick { opacity: 1; }
+
+    /* day date popup */
+    .day-date-pop {
+      position: fixed;
+      z-index: 2000;
+      background: var(--bg-elev);
+      border: 1px solid var(--border-l);
+      border-radius: 8px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.55);
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 210px;
+    }
+
+    .day-date-pop.open { display: flex; }
+
+    .day-date-pop-lbl {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      color: var(--gold);
+      letter-spacing: .06em;
+    }
+
+    .day-date-pop input[type=date] {
+      background: var(--bg-cell);
+      border: 1px solid var(--border-l);
+      border-radius: 5px;
+      color: var(--cream);
+      padding: 6px 9px;
+      font-size: 13px;
+      width: 100%;
+      box-sizing: border-box;
+      color-scheme: dark;
+    }
+
+    .day-date-pop-foot {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
     }
 
     /* ── CELLS ── */
@@ -1315,6 +1374,16 @@
     </div>
   </div>
 
+  <!-- DAY DATE POPUP -->
+  <div class="day-date-pop" id="dayDatePop">
+    <div class="day-date-pop-lbl" id="dayDatePopLbl">SET DATE FOR DAY</div>
+    <input type="date" id="dayDateInp" onchange="applyDayDate(this.value)">
+    <div class="day-date-pop-foot">
+      <button class="btn btn-ghost btn-sm" onclick="clearWeekDates()">Clear dates</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeDayDatePop()">Cancel</button>
+    </div>
+  </div>
+
   <!-- EXPORT MODAL -->
   <div class="ov" id="expOv">
     <div class="modal" style="min-width:440px;max-width:95vw">
@@ -1428,6 +1497,7 @@
 
     let S = clone(DEF);
     let weeks = [], currentWeekIdx = 0;
+    let _pendingDayIdx = null;
     let editKey = null, pendColor = null, pendSpan = 1, isTemplateMode = false;
     let selectedKey = null;
     let copiedCell = null;
@@ -1805,8 +1875,71 @@
       } catch (e) {}
     }
 
+    const _MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const _DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    function computeDayLabel(dayIdx, day) {
+      if (!S.meta.startDate) return day.label;
+      const d = new Date(S.meta.startDate + 'T12:00:00');
+      d.setDate(d.getDate() + dayIdx);
+      return `${_DAYS[d.getDay()]} ${d.getDate()}`;
+    }
+
     function renderWeekNav() {
-      g('weekNavPos').textContent = `Week ${currentWeekIdx + 1} of ${weeks.length}`;
+      const el = g('weekNavPos');
+      const count = `Week ${currentWeekIdx + 1} of ${weeks.length}`;
+      if (S.meta.startDate) {
+        const s = new Date(S.meta.startDate + 'T12:00:00');
+        const e = new Date(s); e.setDate(e.getDate() + S.days.length - 1);
+        el.textContent = `${_MONTHS[s.getMonth()]} ${s.getDate()} – ${_MONTHS[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`;
+        el.title = count;
+      } else {
+        el.textContent = count;
+        el.title = '';
+      }
+    }
+
+    function pickDayDate(e, dayIdx) {
+      e.stopPropagation();
+      _pendingDayIdx = dayIdx;
+      const pop = g('dayDatePop');
+      const day = S.days[dayIdx];
+      const names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      g('dayDatePopLbl').textContent = `SET DATE FOR ${(day?.label || 'DAY').toUpperCase()}`;
+      const inp = g('dayDateInp');
+      if (S.meta.startDate) {
+        const d = new Date(S.meta.startDate + 'T12:00:00');
+        d.setDate(d.getDate() + dayIdx);
+        inp.value = d.toISOString().split('T')[0];
+      } else {
+        inp.value = '';
+      }
+      // Position near click
+      const x = Math.min(e.clientX, window.innerWidth - 240);
+      const y = Math.min(e.clientY + 8, window.innerHeight - 160);
+      pop.style.left = x + 'px';
+      pop.style.top  = y + 'px';
+      pop.classList.add('open');
+    }
+
+    function applyDayDate(val) {
+      if (!val || _pendingDayIdx === null) return;
+      const picked = new Date(val + 'T12:00:00');
+      picked.setDate(picked.getDate() - _pendingDayIdx);
+      S.meta.startDate = picked.toISOString().split('T')[0];
+      closeDayDatePop();
+      save(); renderTT(); renderWeekNav();
+    }
+
+    function closeDayDatePop() {
+      g('dayDatePop').classList.remove('open');
+      _pendingDayIdx = null;
+    }
+
+    function clearWeekDates() {
+      delete S.meta.startDate;
+      closeDayDatePop();
+      save(); renderTT(); renderWeekNav();
     }
 
     function navigateWeek(delta) {
@@ -1819,6 +1952,11 @@
         w.days = clone(S.days);
         w.periods = clone(S.periods);
         w.templates = clone(S.templates);
+        if (S.meta.startDate) {
+          const d = new Date(S.meta.startDate + 'T12:00:00');
+          d.setDate(d.getDate() + 7 * (newIdx - currentWeekIdx));
+          w.meta.startDate = d.toISOString().split('T')[0];
+        }
         weeks.push(w);
       }
       currentWeekIdx = newIdx;
@@ -1956,8 +2094,9 @@
         }
       });
 
-      days.forEach(day => {
-        h += `<div class="tt-day" style="background:${c.dayColor};min-height:${c.cellH}px"><span class="tt-day-lbl">${x(day.label)}</span></div>`;
+      days.forEach((day, dayIdx) => {
+        const dayLbl = computeDayLabel(dayIdx, day);
+        h += `<div class="tt-day" style="background:${c.dayColor};min-height:${c.cellH}px" onclick="pickDayDate(event,${dayIdx})" title="Click to set date"><span class="tt-day-lbl">${x(dayLbl)}</span><span class="day-date-pick">📅 set date</span></div>`;
         const covered = new Set();
         ps.forEach((p, pi) => {
           if (p.isBreak) return;
@@ -2348,6 +2487,9 @@
     function bindEv() {
       g('cellOv').addEventListener('click', e => { if (e.target === e.currentTarget) closeCell(); });
       g('expOv').addEventListener('click', e => { if (e.target === e.currentTarget) closeExp(); });
+      document.addEventListener('click', e => {
+        if (!e.target.closest('#dayDatePop') && !e.target.closest('.tt-day')) closeDayDatePop();
+      });
       document.addEventListener('click', e => {
         if (!e.target.closest('[data-ckey]') && !e.target.closest('.modal')) clearSelection();
       });
