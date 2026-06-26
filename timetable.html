@@ -1505,31 +1505,43 @@
       const dstDayId = key.split('-')[0];
       const dstPeriodId = key.split('-').slice(1).join('-');
 
-      // Period ID arrays for source and destination footprints
       const srcPIdx = S.periods.findIndex(p => p.id === srcPeriodId);
       const dstPIdx = S.periods.findIndex(p => p.id === dstPeriodId);
       const srcPIds = [srcPeriodId, ...getCoveredIds(srcPIdx, srcSpan)];
-      // Destination footprint uses srcSpan size — that's where the block will land
       const dstPIds = [dstPeriodId, ...getCoveredIds(dstPIdx, srcSpan)];
 
-      // Snapshot all destination cells in the incoming block's footprint BEFORE any changes
-      const dstSnapshot = dstPIds.map(pid => {
-        const k = `${dstDayId}-${pid}`;
-        return S.cells[k] ? clone(S.cells[k]) : null;
-      });
+      const srcPIdSet = new Set(srcPIds);
+      const dstPIdSet = new Set(dstPIds);
+      const hasOverlap = srcDayId === dstDayId && srcPIds.some(id => dstPIdSet.has(id));
 
-      // 1. Clear source's full span footprint
-      srcPIds.forEach(pid => delete S.cells[`${srcDayId}-${pid}`]);
-      // 2. Clear destination: whichever is larger — existing block or incoming block
-      clearDestSpan(dstDayId, dstPeriodId, Math.max(dstSpan, srcSpan));
-      // 3. Place source at destination
-      if (srcData) S.cells[key] = srcData;
-      // 4. Send each destination cell back to its matching source slot
-      dstSnapshot.forEach((cellData, i) => {
-        if (cellData) S.cells[`${srcDayId}-${srcPIds[i]}`] = cellData;
-      });
+      let hadContent;
+      if (hasOverlap) {
+        // Same-day shift: footprints partially overlap.
+        // Only the "newly entered" slots (in dst but not src) have displaced content;
+        // that content moves to the "vacated" tail slots (in src but not dst).
+        const newlyOccupied = dstPIds.filter(id => !srcPIdSet.has(id));
+        const vacated       = srcPIds.filter(id => !dstPIdSet.has(id));
+        const displaced = newlyOccupied.map(pid => {
+          const k = `${dstDayId}-${pid}`;
+          return S.cells[k] ? clone(S.cells[k]) : null;
+        });
+        hadContent = displaced.some(c => c !== null);
+        new Set([...srcPIds, ...dstPIds]).forEach(pid => delete S.cells[`${srcDayId}-${pid}`]);
+        if (srcData) S.cells[key] = srcData;
+        displaced.forEach((cell, i) => { if (cell && vacated[i]) S.cells[`${srcDayId}-${vacated[i]}`] = cell; });
+      } else {
+        // Cross-day or non-overlapping same-day: full swap
+        const dstSnapshot = dstPIds.map(pid => {
+          const k = `${dstDayId}-${pid}`;
+          return S.cells[k] ? clone(S.cells[k]) : null;
+        });
+        hadContent = dstSnapshot.some(c => c !== null);
+        srcPIds.forEach(pid => delete S.cells[`${srcDayId}-${pid}`]);
+        clearDestSpan(dstDayId, dstPeriodId, Math.max(dstSpan, srcSpan));
+        if (srcData) S.cells[key] = srcData;
+        dstSnapshot.forEach((cell, i) => { if (cell) S.cells[`${srcDayId}-${srcPIds[i]}`] = cell; });
+      }
 
-      const hadContent = dstSnapshot.some(c => c !== null);
       pushHistory(); cDragEnd(); renderTT();
       toast(hadContent ? 'Blocks swapped' : 'Block moved', 'ok');
     }
