@@ -681,6 +681,20 @@
       filter: none;
     }
 
+    .tt-cell.drop-target.dup-target {
+      border-color: #6fcf76 !important;
+      background: rgba(111, 207, 118, .13) !important;
+      box-shadow: inset 0 0 0 2px rgba(111, 207, 118, .35);
+    }
+
+    #_drag-ph.dup-mode {
+      visibility: visible !important;
+      opacity: .22;
+      background: rgba(111, 207, 118, .08);
+      border: 1px dashed #6fcf76;
+      border-radius: 5px;
+    }
+
     .tt-cell.selected {
       border-color: var(--gold) !important;
       box-shadow: 0 0 0 2px var(--gold-d), inset 0 0 0 1px rgba(201, 168, 76, .25);
@@ -1409,7 +1423,8 @@
       cellKey: null,
       pIdx: null,
       dIdx: null,
-      tIdx: null
+      tIdx: null,
+      isDuplicate: false
     };
 
     // ════════════════════════════════════════════
@@ -1417,7 +1432,8 @@
     // ════════════════════════════════════════════
     function cDragStart(e, key) {
       DS.cellKey = key;
-      e.dataTransfer.effectAllowed = 'move';
+      DS.isDuplicate = e.altKey;
+      e.dataTransfer.effectAllowed = e.altKey ? 'copy' : 'move';
       e.dataTransfer.setData('text/plain', key);
 
       const cell = S.cells[key];
@@ -1441,17 +1457,20 @@
         ph.style.pointerEvents = 'none';
         el.parentNode.insertBefore(ph, el);
         el.classList.add('is-dragging');
+        if (DS.isDuplicate) ph.classList.add('dup-mode');
       });
-      showTip('Drop to move / swap', e);
+      showTip(DS.isDuplicate ? 'Alt+Drag — Duplicate' : 'Drop to move / swap', e);
     }
 
     function cDragOver(e, key) {
       if (DS.cellKey || DS.tIdx !== null) {
         e.preventDefault();
-        e.dataTransfer.dropEffect = DS.tIdx !== null ? 'copy' : 'move';
-        document.querySelectorAll('.tt-cell.drop-target').forEach(el => el.classList.remove('drop-target'));
+        DS.isDuplicate = !!e.altKey;
+        e.dataTransfer.dropEffect = DS.tIdx !== null ? 'copy' : (DS.isDuplicate ? 'copy' : 'move');
+        document.querySelectorAll('.tt-cell.drop-target').forEach(el => el.classList.remove('drop-target', 'dup-target'));
+        const ph = document.getElementById('_drag-ph');
+        if (ph) ph.classList.toggle('dup-mode', DS.isDuplicate);
         if (DS.cellKey) {
-          // Highlight all cells the incoming block will cover
           const srcSpan = S.cells[DS.cellKey]?.span || 1;
           const parts = key.split('-');
           const dayId = parts[0];
@@ -1459,13 +1478,13 @@
           const pIdx = S.periods.findIndex(p => p.id === periodId);
           [periodId, ...getCoveredIds(pIdx, srcSpan)].forEach(pid => {
             const el = document.querySelector(`[data-ckey="${dayId}-${pid}"]`);
-            if (el) el.classList.add('drop-target');
+            if (el) { el.classList.add('drop-target'); if (DS.isDuplicate) el.classList.add('dup-target'); }
           });
         } else {
           const el = document.querySelector(`[data-ckey="${key}"]`);
-          if (el) el.classList.add('drop-target');
+          if (el) { el.classList.add('drop-target'); if (DS.isDuplicate) el.classList.add('dup-target'); }
         }
-        showTip('Drop to move / swap', e);
+        showTip(DS.isDuplicate ? 'Alt+Drag — Duplicate' : 'Drop to move / swap', e);
       }
     }
 
@@ -1496,6 +1515,18 @@
       const src = DS.cellKey;
       if (!src || src === key) { cDragEnd(); return; }
       const srcData = S.cells[src] ? clone(S.cells[src]) : null;
+      if (!srcData) { cDragEnd(); return; }
+
+      if (DS.isDuplicate) {
+        const dstDayId2 = key.split('-')[0];
+        const dstPeriodId2 = key.split('-').slice(1).join('-');
+        clearDestSpan(dstDayId2, dstPeriodId2, Math.max(S.cells[key]?.span || 1, srcData.span || 1));
+        S.cells[key] = clone(srcData);
+        pushHistory(); cDragEnd(); renderTT();
+        toast('Block duplicated', 'ok');
+        return;
+      }
+
       const dstData = S.cells[key] ? clone(S.cells[key]) : null;
       const srcSpan = srcData?.span || 1;
       const dstSpan = dstData?.span || 1;
@@ -1549,9 +1580,10 @@
     function cDragEnd() {
       DS.cellKey = null;
       DS.tIdx = null;
+      DS.isDuplicate = false;
       const ph = document.getElementById('_drag-ph');
       if (ph) ph.remove();
-      document.querySelectorAll('.tt-cell').forEach(el => el.classList.remove('is-dragging', 'drop-target'));
+      document.querySelectorAll('.tt-cell').forEach(el => el.classList.remove('is-dragging', 'drop-target', 'dup-target'));
       document.getElementById('temList').classList.remove('drop-target');
       hideTip();
     }
