@@ -1439,10 +1439,36 @@
       if (el) el.classList.remove('drop-target');
     }
 
+    // Returns all period IDs (anchor + covered) for a cell key
+    function cellPeriodIds(key) {
+      const parts = key.split('-');
+      const periodId = parts.slice(1).join('-');
+      const cell = S.cells[key];
+      const span = cell?.span || 1;
+      const pIdx = S.periods.findIndex(p => p.id === periodId);
+      return [periodId, ...getCoveredIds(pIdx, span)];
+    }
+
+    // Clears all slots a cell's span occupies within its day
+    function clearCellSpan(key) {
+      const dayId = key.split('-')[0];
+      cellPeriodIds(key).forEach(pid => delete S.cells[`${dayId}-${pid}`]);
+    }
+
+    // Clears destination slots that a moved/duplicated span would occupy
+    function clearDestSpan(dayId, anchorPeriodId, span) {
+      const pIdx = S.periods.findIndex(p => p.id === anchorPeriodId);
+      [anchorPeriodId, ...getCoveredIds(pIdx, span)].forEach(pid => delete S.cells[`${dayId}-${pid}`]);
+    }
+
     function cDrop(e, key) {
       e.preventDefault();
       if (DS.tIdx !== null) {
         const template = S.templates[DS.tIdx];
+        // Clear any span the destination cell might already have
+        const dstDayId = key.split('-')[0];
+        const dstPeriodId = key.split('-').slice(1).join('-');
+        clearDestSpan(dstDayId, dstPeriodId, S.cells[key]?.span || 1);
         S.cells[key] = { ...template };
         delete S.cells[key].id;
         cDragEnd();
@@ -1452,20 +1478,44 @@
       }
       const src = DS.cellKey;
       if (!src || src === key) { cDragEnd(); return; }
+
       const isDup = DS.isDuplicate || e.altKey;
-      const a = S.cells[src] ? { ...S.cells[src] } : null;
+      const srcData = S.cells[src] ? clone(S.cells[src]) : null;
+      const dstData = S.cells[key] ? clone(S.cells[key]) : null;
+      const srcSpan = srcData?.span || 1;
+      const dstSpan = dstData?.span || 1;
+
+      const srcDayId = src.split('-')[0];
+      const srcPeriodId = src.split('-').slice(1).join('-');
+      const dstDayId = key.split('-')[0];
+      const dstPeriodId = key.split('-').slice(1).join('-');
+
       if (isDup) {
-        if (a) S.cells[key] = a; else delete S.cells[key];
+        // Clear only the destination span footprint, leave source intact
+        clearDestSpan(dstDayId, dstPeriodId, dstSpan);
+        // Also clear slots the incoming span would cover at destination
+        clearDestSpan(dstDayId, dstPeriodId, srcSpan);
+        if (srcData) S.cells[key] = srcData;
         cDragEnd();
         renderTT();
         toast('Block duplicated', 'ok');
       } else {
-        const b = S.cells[key] ? { ...S.cells[key] } : null;
-        if (a) S.cells[key] = a; else delete S.cells[key];
-        if (b) S.cells[src] = b; else delete S.cells[src];
+        // Clear both footprints first
+        clearCellSpan(src);
+        clearDestSpan(dstDayId, dstPeriodId, dstSpan);
+        // Also clear slots the source span will occupy at destination
+        clearDestSpan(dstDayId, dstPeriodId, srcSpan);
+        // Place source at destination
+        if (srcData) S.cells[key] = srcData;
+        // Place destination at source (swap) — clear source footprint first for dest's span
+        if (dstData) {
+          clearDestSpan(srcDayId, srcPeriodId, srcSpan);
+          clearDestSpan(srcDayId, srcPeriodId, dstSpan);
+          S.cells[src] = dstData;
+        }
         cDragEnd();
         renderTT();
-        toast('Blocks swapped', 'ok');
+        toast(dstData ? 'Blocks swapped' : 'Block moved', 'ok');
       }
     }
 
