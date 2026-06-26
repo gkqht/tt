@@ -1439,23 +1439,7 @@
       if (el) el.classList.remove('drop-target');
     }
 
-    // Returns all period IDs (anchor + covered) for a cell key
-    function cellPeriodIds(key) {
-      const parts = key.split('-');
-      const periodId = parts.slice(1).join('-');
-      const cell = S.cells[key];
-      const span = cell?.span || 1;
-      const pIdx = S.periods.findIndex(p => p.id === periodId);
-      return [periodId, ...getCoveredIds(pIdx, span)];
-    }
-
-    // Clears all slots a cell's span occupies within its day
-    function clearCellSpan(key) {
-      const dayId = key.split('-')[0];
-      cellPeriodIds(key).forEach(pid => delete S.cells[`${dayId}-${pid}`]);
-    }
-
-    // Clears destination slots that a moved/duplicated span would occupy
+    // Clears exactly `span` non-break slots starting at anchorPeriodId within dayId
     function clearDestSpan(dayId, anchorPeriodId, span) {
       const pIdx = S.periods.findIndex(p => p.id === anchorPeriodId);
       [anchorPeriodId, ...getCoveredIds(pIdx, span)].forEach(pid => delete S.cells[`${dayId}-${pid}`]);
@@ -1465,14 +1449,13 @@
       e.preventDefault();
       if (DS.tIdx !== null) {
         const template = S.templates[DS.tIdx];
-        // Clear any span the destination cell might already have
         const dstDayId = key.split('-')[0];
         const dstPeriodId = key.split('-').slice(1).join('-');
-        clearDestSpan(dstDayId, dstPeriodId, S.cells[key]?.span || 1);
+        // Clear only the slots the template needs
+        clearDestSpan(dstDayId, dstPeriodId, Math.max(S.cells[key]?.span || 1, template.span || 1));
         S.cells[key] = { ...template };
         delete S.cells[key].id;
-        cDragEnd();
-        renderTT();
+        cDragEnd(); renderTT();
         toast('Template applied', 'ok');
         return;
       }
@@ -1483,7 +1466,6 @@
       const srcData = S.cells[src] ? clone(S.cells[src]) : null;
       const dstData = S.cells[key] ? clone(S.cells[key]) : null;
       const srcSpan = srcData?.span || 1;
-      const dstSpan = dstData?.span || 1;
 
       const srcDayId = src.split('-')[0];
       const srcPeriodId = src.split('-').slice(1).join('-');
@@ -1491,32 +1473,26 @@
       const dstPeriodId = key.split('-').slice(1).join('-');
 
       if (isDup) {
-        // Clear only the destination span footprint, leave source intact
-        clearDestSpan(dstDayId, dstPeriodId, dstSpan);
-        // Also clear slots the incoming span would cover at destination
+        // Clear only the slots the copy needs at destination; source untouched
         clearDestSpan(dstDayId, dstPeriodId, srcSpan);
         if (srcData) S.cells[key] = srcData;
-        cDragEnd();
-        renderTT();
+        cDragEnd(); renderTT();
         toast('Block duplicated', 'ok');
-      } else {
-        // Clear both footprints first
-        clearCellSpan(src);
-        clearDestSpan(dstDayId, dstPeriodId, dstSpan);
-        // Also clear slots the source span will occupy at destination
-        clearDestSpan(dstDayId, dstPeriodId, srcSpan);
-        // Place source at destination
-        if (srcData) S.cells[key] = srcData;
-        // Place destination at source (swap) — clear source footprint first for dest's span
-        if (dstData) {
-          clearDestSpan(srcDayId, srcPeriodId, srcSpan);
-          clearDestSpan(srcDayId, srcPeriodId, dstSpan);
-          S.cells[src] = dstData;
-        }
-        cDragEnd();
-        renderTT();
-        toast(dstData ? 'Blocks swapped' : 'Block moved', 'ok');
+        return;
       }
+
+      // 1. Clear source's own span footprint
+      clearDestSpan(srcDayId, srcPeriodId, srcSpan);
+      // 2. Clear only the slots the incoming block needs at destination
+      clearDestSpan(dstDayId, dstPeriodId, srcSpan);
+      // 3. Place source at destination
+      if (srcData) S.cells[key] = srcData;
+      // 4. Swap: place destination content back at source (no extra clearing —
+      //    the render's span logic covers whatever sits beneath it)
+      if (dstData) S.cells[src] = dstData;
+
+      cDragEnd(); renderTT();
+      toast(dstData ? 'Blocks swapped' : 'Block moved', 'ok');
     }
 
     function cDragEnd() {
