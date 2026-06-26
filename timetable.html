@@ -677,6 +677,24 @@
       filter: none;
     }
 
+    .tt-cell.is-duplicating {
+      opacity: .75;
+      border-style: dashed !important;
+      border-color: var(--gold) !important;
+      filter: none;
+    }
+
+    .tt-cell.is-duplicating::after {
+      content: '+';
+      position: absolute;
+      top: 4px;
+      left: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold);
+      line-height: 1;
+    }
+
     .tt-cell.drop-target {
       border-color: var(--gold) !important;
       background: rgba(201, 168, 76, .12) !important;
@@ -1382,7 +1400,8 @@
       cellKey: null,
       pIdx: null,
       dIdx: null,
-      tIdx: null
+      tIdx: null,
+      isDuplicate: false
     };
 
     // ════════════════════════════════════════════
@@ -1390,23 +1409,28 @@
     // ════════════════════════════════════════════
     function cDragStart(e, key) {
       DS.cellKey = key;
-      e.dataTransfer.effectAllowed = 'move';
+      DS.isDuplicate = e.altKey;
+      e.dataTransfer.effectAllowed = DS.isDuplicate ? 'copy' : 'move';
       e.dataTransfer.setData('text/plain', key);
       requestAnimationFrame(() => {
         const el = document.querySelector(`[data-ckey="${key}"]`);
-        if (el) el.classList.add('is-dragging');
+        if (el) {
+          if (DS.isDuplicate) el.classList.add('is-duplicating');
+          else el.classList.add('is-dragging');
+        }
       });
-      showTip('Drop to swap', e);
+      showTip(DS.isDuplicate ? 'Alt+Drag — Duplicate' : 'Drop to swap', e);
     }
 
     function cDragOver(e, key) {
       if (DS.cellKey || DS.tIdx !== null) {
         e.preventDefault();
-        e.dataTransfer.dropEffect = DS.cellKey ? 'move' : 'copy';
+        const isDup = DS.isDuplicate || e.altKey;
+        e.dataTransfer.dropEffect = (DS.tIdx !== null || isDup) ? 'copy' : 'move';
         document.querySelectorAll('.tt-cell.drop-target').forEach(el => el.classList.remove('drop-target'));
         const el = document.querySelector(`[data-ckey="${key}"]`);
         if (el) el.classList.add('drop-target');
-        moveTip(e);
+        showTip(isDup ? 'Alt+Drag — Duplicate' : 'Drop to swap', e);
       }
     }
 
@@ -1428,19 +1452,28 @@
       }
       const src = DS.cellKey;
       if (!src || src === key) { cDragEnd(); return; }
+      const isDup = DS.isDuplicate || e.altKey;
       const a = S.cells[src] ? { ...S.cells[src] } : null;
-      const b = S.cells[key] ? { ...S.cells[key] } : null;
-      if (a) S.cells[key] = a; else delete S.cells[key];
-      if (b) S.cells[src] = b; else delete S.cells[src];
-      cDragEnd();
-      renderTT();
-      toast('Blocks swapped', 'ok');
+      if (isDup) {
+        if (a) S.cells[key] = a; else delete S.cells[key];
+        cDragEnd();
+        renderTT();
+        toast('Block duplicated', 'ok');
+      } else {
+        const b = S.cells[key] ? { ...S.cells[key] } : null;
+        if (a) S.cells[key] = a; else delete S.cells[key];
+        if (b) S.cells[src] = b; else delete S.cells[src];
+        cDragEnd();
+        renderTT();
+        toast('Blocks swapped', 'ok');
+      }
     }
 
     function cDragEnd() {
       DS.cellKey = null;
       DS.tIdx = null;
-      document.querySelectorAll('.tt-cell').forEach(el => el.classList.remove('is-dragging', 'drop-target'));
+      DS.isDuplicate = false;
+      document.querySelectorAll('.tt-cell').forEach(el => el.classList.remove('is-dragging', 'is-duplicating', 'drop-target'));
       document.getElementById('temList').classList.remove('drop-target');
       hideTip();
     }
