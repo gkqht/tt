@@ -1428,15 +1428,27 @@
         const isDup = DS.isDuplicate || e.altKey;
         e.dataTransfer.dropEffect = (DS.tIdx !== null || isDup) ? 'copy' : 'move';
         document.querySelectorAll('.tt-cell.drop-target').forEach(el => el.classList.remove('drop-target'));
-        const el = document.querySelector(`[data-ckey="${key}"]`);
-        if (el) el.classList.add('drop-target');
+        if (DS.cellKey) {
+          // Highlight all cells the incoming block will cover
+          const srcSpan = S.cells[DS.cellKey]?.span || 1;
+          const parts = key.split('-');
+          const dayId = parts[0];
+          const periodId = parts.slice(1).join('-');
+          const pIdx = S.periods.findIndex(p => p.id === periodId);
+          [periodId, ...getCoveredIds(pIdx, srcSpan)].forEach(pid => {
+            const el = document.querySelector(`[data-ckey="${dayId}-${pid}"]`);
+            if (el) el.classList.add('drop-target');
+          });
+        } else {
+          const el = document.querySelector(`[data-ckey="${key}"]`);
+          if (el) el.classList.add('drop-target');
+        }
         showTip(isDup ? 'Alt+Drag — Duplicate' : 'Drop to swap', e);
       }
     }
 
     function cDragLeave(e, key) {
-      const el = document.querySelector(`[data-ckey="${key}"]`);
-      if (el) el.classList.remove('drop-target');
+      document.querySelectorAll('.tt-cell.drop-target').forEach(el => el.classList.remove('drop-target'));
     }
 
     // Clears exactly `span` non-break slots starting at anchorPeriodId within dayId
