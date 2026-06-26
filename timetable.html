@@ -702,6 +702,12 @@
       filter: none;
     }
 
+    .tt-cell.selected {
+      border-color: var(--gold) !important;
+      box-shadow: 0 0 0 2px var(--gold-d), inset 0 0 0 1px rgba(201, 168, 76, .25);
+      filter: none;
+    }
+
     /* cell content */
     .c-tag {
       font-size: 10px;
@@ -1390,6 +1396,29 @@
 
     let S = clone(DEF);
     let editKey = null, pendColor = null, pendSpan = 1, isTemplateMode = false;
+    let selectedKey = null;
+
+    // ── HISTORY ──
+    const _hist = [];
+    let _histIdx = -1;
+    function pushHistory() {
+      _hist.splice(_histIdx + 1);
+      _hist.push(clone(S));
+      if (_hist.length > 60) _hist.shift();
+      _histIdx = _hist.length - 1;
+    }
+    function undo() {
+      if (_histIdx <= 0) { toast('Nothing to undo', 'er'); return; }
+      _histIdx--;
+      S = clone(_hist[_histIdx]);
+      clearSelection(); syncUI(); renderSB(); renderTT(); toast('Undo', 'ok');
+    }
+    function redo() {
+      if (_histIdx >= _hist.length - 1) { toast('Nothing to redo', 'er'); return; }
+      _histIdx++;
+      S = clone(_hist[_histIdx]);
+      clearSelection(); syncUI(); renderSB(); renderTT(); toast('Redo', 'ok');
+    }
 
     function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -1473,7 +1502,7 @@
       }
       const src = DS.cellKey;
       if (!src || src === key) { cDragEnd(); return; }
-
+      pushHistory();
       const isDup = DS.isDuplicate || e.altKey;
       const srcData = S.cells[src] ? clone(S.cells[src]) : null;
       const dstData = S.cells[key] ? clone(S.cells[key]) : null;
@@ -1685,6 +1714,7 @@
     // ════════════════════════════════════════════
     function init() {
       try { const sv = localStorage.getItem('codex-life'); if (sv) S = JSON.parse(sv); } catch (e) { }
+      _hist.push(clone(S)); _histIdx = 0;
       syncUI(); renderSB(); renderTT(); bindEv();
     }
 
@@ -1828,16 +1858,37 @@
             h += `<div class="tt-cell empty no-content" data-ckey="${key}" style="${spanStyle}${bgStyle}${minH}" onclick="openCell('${key}')" ondragover="cDragOver(event,'${key}')" ondragleave="cDragLeave(event,'${key}')" ondrop="cDrop(event,'${key}')"><span class="c-title">—</span><span class="eh" title="Click to edit">✎</span></div>`;
           } else {
             const mergedBadge = span > 1 ? `<span class="c-merged">×${span}</span>` : '';
-            h += `<div class="tt-cell has-content" data-ckey="${key}" draggable="true" style="${spanStyle}${bgStyle}${minH}" ondragstart="cDragStart(event,'${key}')" ondragend="cDragEnd()" ondragover="cDragOver(event,'${key}')" ondragleave="cDragLeave(event,'${key}')" ondrop="cDrop(event,'${key}')" onclick="cellClick(event,'${key}')"><span class="c-tag">${x(cell.tag || '')}</span><span class="c-title">${x(cell.title || '')}</span><span class="c-note">${x(cell.note || '')}</span>${mergedBadge}<span class="eh" title="Click to edit">✎</span><span class="dh" title="Drag to move">⠿</span></div>`;
+            h += `<div class="tt-cell has-content" data-ckey="${key}" draggable="true" style="${spanStyle}${bgStyle}${minH}" ondragstart="cDragStart(event,'${key}')" ondragend="cDragEnd()" ondragover="cDragOver(event,'${key}')" ondragleave="cDragLeave(event,'${key}')" ondrop="cDrop(event,'${key}')" onclick="cellClick(event,'${key}')" ondblclick="cellDblClick(event,'${key}')"><span class="c-tag">${x(cell.tag || '')}</span><span class="c-title">${x(cell.title || '')}</span><span class="c-note">${x(cell.note || '')}</span>${mergedBadge}<span class="eh" title="Double-click to edit">✎</span><span class="dh" title="Drag to move">⠿</span></div>`;
           }
         });
       });
       grid.innerHTML = h;
+      if (selectedKey) {
+        const el = document.querySelector(`[data-ckey="${selectedKey}"]`);
+        if (el) el.classList.add('selected');
+      }
       save();
     }
 
     let _dragging = false;
-    function cellClick(e, key) { if (_dragging) return; openCell(key); }
+
+    function selectCell(key) {
+      selectedKey = key;
+      document.querySelectorAll('.tt-cell.selected').forEach(el => el.classList.remove('selected'));
+      const el = document.querySelector(`[data-ckey="${key}"]`);
+      if (el) el.classList.add('selected');
+    }
+    function clearSelection() {
+      selectedKey = null;
+      document.querySelectorAll('.tt-cell.selected').forEach(el => el.classList.remove('selected'));
+    }
+
+    function cellClick(e, key) {
+      if (_dragging) return;
+      if (selectedKey === key) { openCell(key); }
+      else { selectCell(key); }
+    }
+    function cellDblClick(e, key) { if (_dragging) return; openCell(key); }
 
     // ════════════════════════════════════════════
     //  MODALS & UI HELPERS
@@ -1875,6 +1926,7 @@
 
     function saveCell() {
       if (!editKey) return;
+      pushHistory();
       const data = { tag: g('ci-tag').value.trim(), title: g('ci-title').value.trim(), note: g('ci-note').value.trim(), color: pendColor, span: pendSpan };
       if (isTemplateMode) {
         if (!S.templates) S.templates = [];
@@ -1887,7 +1939,7 @@
     }
 
     function closeCell() { g('cellOv').classList.remove('open'); editKey = null; }
-    function clearCell() { if (!editKey) return; delete S.cells[editKey]; closeCell(); renderTT(); }
+    function clearCell() { if (!editKey) return; pushHistory(); delete S.cells[editKey]; closeCell(); renderTT(); }
     function openExp() { g('expOv').classList.add('open'); }
     function closeExp() { g('expOv').classList.remove('open'); }
 
@@ -2178,9 +2230,30 @@
     function bindEv() {
       g('cellOv').addEventListener('click', e => { if (e.target === e.currentTarget) closeCell(); });
       g('expOv').addEventListener('click', e => { if (e.target === e.currentTarget) closeExp(); });
+      document.addEventListener('click', e => {
+        if (!e.target.closest('[data-ckey]') && !e.target.closest('.modal')) clearSelection();
+      });
       document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') { closeCell(); closeExp(); }
-        if (e.key === 'Enter' && g('cellOv').classList.contains('open') && document.activeElement.tagName !== 'BUTTON') saveCell();
+        const modalOpen = g('cellOv').classList.contains('open');
+        const inInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+        if (e.key === 'Escape') { closeCell(); closeExp(); clearSelection(); }
+        if (e.key === 'Enter' && modalOpen && !inInput) saveCell();
+
+        if (!modalOpen && !inInput) {
+          // Delete selected cell
+          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedKey) {
+            e.preventDefault();
+            pushHistory();
+            const parts = selectedKey.split('-');
+            const dayId = parts[0], periodId = parts.slice(1).join('-');
+            clearDestSpan(dayId, periodId, S.cells[selectedKey]?.span || 1);
+            clearSelection(); renderTT(); toast('Block deleted', 'ok');
+          }
+          // Undo
+          if (e.ctrlKey && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+          // Redo
+          if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); redo(); }
+        }
       });
       document.addEventListener('dragstart', () => _dragging = true);
       document.addEventListener('dragend', () => setTimeout(() => _dragging = false, 100));
