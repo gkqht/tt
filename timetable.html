@@ -1466,6 +1466,7 @@
       const srcData = S.cells[src] ? clone(S.cells[src]) : null;
       const dstData = S.cells[key] ? clone(S.cells[key]) : null;
       const srcSpan = srcData?.span || 1;
+      const dstSpan = dstData?.span || 1;
 
       const srcDayId = src.split('-')[0];
       const srcPeriodId = src.split('-').slice(1).join('-');
