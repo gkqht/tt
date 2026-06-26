@@ -1473,22 +1473,22 @@
       const dstPeriodId = key.split('-').slice(1).join('-');
 
       if (isDup) {
-        // Clear only the slots the copy needs at destination; source untouched
-        clearDestSpan(dstDayId, dstPeriodId, srcSpan);
+        // Clear destination's existing span only; source untouched
+        clearDestSpan(dstDayId, dstPeriodId, dstSpan);
         if (srcData) S.cells[key] = srcData;
         cDragEnd(); renderTT();
         toast('Block duplicated', 'ok');
         return;
       }
 
-      // 1. Clear source's own span footprint
+      // 1. Clear source's own span footprint (prevents covered cells "popping back")
       clearDestSpan(srcDayId, srcPeriodId, srcSpan);
-      // 2. Clear only the slots the incoming block needs at destination
-      clearDestSpan(dstDayId, dstPeriodId, srcSpan);
+      // 2. Clear only the destination's existing span footprint (not srcSpan —
+      //    the render's getCoveredIds hides whatever sits under the incoming block)
+      clearDestSpan(dstDayId, dstPeriodId, dstSpan);
       // 3. Place source at destination
       if (srcData) S.cells[key] = srcData;
-      // 4. Swap: place destination content back at source (no extra clearing —
-      //    the render's span logic covers whatever sits beneath it)
+      // 4. Swap: place destination content back at source
       if (dstData) S.cells[src] = dstData;
 
       cDragEnd(); renderTT();
