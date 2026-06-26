@@ -671,10 +671,7 @@
 
     /* drag states */
     .tt-cell.is-dragging {
-      opacity: .28;
-      border-style: dashed !important;
-      border-color: var(--gold-d) !important;
-      filter: none;
+      visibility: hidden;
     }
 
     .tt-cell.drop-target {
@@ -1431,10 +1428,16 @@
       e.dataTransfer.setDragImage(ghost, 16, 16);
       setTimeout(() => ghost.remove(), 0);
 
-      requestAnimationFrame(() => {
-        const el = document.querySelector(`[data-ckey="${key}"]`);
-        if (el) el.classList.add('is-dragging');
-      });
+      // Pin explicit grid position immediately so CSS grid can't shift layout during drag.
+      // visibility:hidden (not opacity) keeps the box in flow; explicit column/row stops
+      // auto-placement from recalculating when the browser momentarily detaches the element.
+      const el = document.querySelector(`[data-ckey="${key}"]`);
+      if (el) {
+        const cs = window.getComputedStyle(el);
+        el.style.gridColumnStart = cs.gridColumnStart;
+        el.style.gridRowStart = cs.gridRowStart;
+        el.classList.add('is-dragging');
+      }
       showTip('Drop to move / swap', e);
     }
 
@@ -1530,7 +1533,11 @@
     function cDragEnd() {
       DS.cellKey = null;
       DS.tIdx = null;
-      document.querySelectorAll('.tt-cell').forEach(el => el.classList.remove('is-dragging', 'drop-target'));
+      document.querySelectorAll('.tt-cell').forEach(el => {
+        el.classList.remove('is-dragging', 'drop-target');
+        el.style.gridColumnStart = '';
+        el.style.gridRowStart = '';
+      });
       document.getElementById('temList').classList.remove('drop-target');
       hideTip();
     }
